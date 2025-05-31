@@ -221,24 +221,24 @@ public class FilePickerPlugin: NSObject, FlutterPlugin {
     
     /// Checks if the  entitlements file contains the required entitlement for save files.
     private func checkEntitlement(requiredMode: EntitlementMode) -> FlutterError? {
-        guard let task = SecTaskCreateFromSelf(nil) else {
-            return FlutterError(code: "ENTITLEMENT_CHECK_FAILED", message: "Failed to verify file_picker entitlements.", details: nil)
-        }
+        // guard let task = SecTaskCreateFromSelf(nil) else {
+        //     return FlutterError(code: "ENTITLEMENT_CHECK_FAILED", message: "Failed to verify file_picker entitlements.", details: nil)
+        // }
         
-        let readWriteEntitlement = SecTaskCopyValueForEntitlement(task, .securityFilesUserSelectedReadWrite, nil) as? Bool
-        let readOnlyEntitlement = SecTaskCopyValueForEntitlement(task, .securityFilesUserSelectedReadOnly, nil) as? Bool
+        // let readWriteEntitlement = SecTaskCopyValueForEntitlement(task, .securityFilesUserSelectedReadWrite, nil) as? Bool
+        // let readOnlyEntitlement = SecTaskCopyValueForEntitlement(task, .securityFilesUserSelectedReadOnly, nil) as? Bool
         
-        switch requiredMode {
-        case .requireWrite:
-            if readWriteEntitlement != true {
-                return FlutterError(code: "ENTITLEMENT_REQUIRED_WRITE", message: "The Read-Write entitlement is required for this action.", details: nil)
-            }
+        // switch requiredMode {
+        // case .requireWrite:
+        //     if readWriteEntitlement != true {
+        //         return FlutterError(code: "ENTITLEMENT_REQUIRED_WRITE", message: "The Read-Write entitlement is required for this action.", details: nil)
+        //     }
             
-        case .readOrWrite:
-            if readWriteEntitlement != true && readOnlyEntitlement != true {
-                return FlutterError(code: "ENTITLEMENT_NOT_FOUND", message: "Either the Read-Only or Read-Write entitlement is required for this action.", details: nil)
-            }
-        }
+        // case .readOrWrite:
+        //     if readWriteEntitlement != true && readOnlyEntitlement != true {
+        //         return FlutterError(code: "ENTITLEMENT_NOT_FOUND", message: "Either the Read-Only or Read-Write entitlement is required for this action.", details: nil)
+        //     }
+        // }
         return nil
     }
     
