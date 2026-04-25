@@ -116,6 +116,28 @@ object FileUtils {
         return uri
     }
 
+    fun writeFileData(
+        context: Context,
+        uri: Uri,
+        sourcePath: String
+    ): Uri {
+        val sourceFile = File(sourcePath)
+        if (!sourceFile.exists()) {
+            throw FileNotFoundException("Source file does not exist: $sourcePath")
+        }
+
+        val outputStream = context.contentResolver.openOutputStream(uri)
+            ?: throw IOException("Could not open output stream for: $uri")
+
+        FileInputStream(sourceFile).use { input ->
+            outputStream.use { output ->
+                input.copyTo(output, DEFAULT_BUFFER_SIZE)
+            }
+        }
+
+        return uri
+    }
+
     private fun FilePickerDelegate.handleFileResult(files: List<FileInfo>) {
         if (files.isNotEmpty()) {
             finishWithSuccess(files)
@@ -205,24 +227,53 @@ object FileUtils {
             this?.startFileExplorer()
         }
 
-        fun getFileExtension(bytes: ByteArray?): String {
+        fun getFileExtension(bytes: ByteArray?, sourcePath: String? = null): String {
+            val sourceExtension = sourcePath
+                ?.let { File(it).extension }
+                ?.takeIf { it.isNotEmpty() }
+            if (sourceExtension != null) {
+                return sourceExtension
+            }
+            if (bytes == null) {
+                return "bin"
+            }
+
             val tika = Tika()
             val mimeType = tika.detect(bytes)
             return mimeType.substringAfter("/")
         }
 
-        private fun getMimeTypeForBytes(fileName: String?, bytes: ByteArray?): String {
-            val tika = Tika()
+        private fun getMimeTypeForFile(fileName: String?, bytes: ByteArray?, sourcePath: String?): String {
+            val extension = when {
+                !fileName.isNullOrEmpty() && File(fileName).extension.isNotEmpty() -> File(fileName).extension
+                !sourcePath.isNullOrEmpty() && File(sourcePath).extension.isNotEmpty() -> File(sourcePath).extension
+                else -> null
+            }?.lowercase(Locale.ROOT)
 
-            if (fileName.isNullOrEmpty()) {
-                return tika.detect(bytes)
+            if (!extension.isNullOrEmpty()) {
+                when (extension) {
+                    "epub" -> return "application/epub+zip"
+                    "mobi" -> return "application/x-mobipocket-ebook"
+                    "azw", "azw3" -> return "application/vnd.amazon.ebook"
+                }
+                MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension)?.let {
+                    return it
+                }
             }
-            val detector = tika.detector
 
-            val stream = TikaInputStream.get(bytes)
-            val metadata = Metadata()
-            metadata.set(TikaCoreProperties.RESOURCE_NAME_KEY, fileName)
-            return detector.detect(stream, metadata).toString()
+            val tika = Tika()
+            if (bytes != null) {
+                if (fileName.isNullOrEmpty()) {
+                    return tika.detect(bytes)
+                }
+                val detector = tika.detector
+                val stream = TikaInputStream.get(bytes)
+                val metadata = Metadata()
+                metadata.set(TikaCoreProperties.RESOURCE_NAME_KEY, fileName)
+                return detector.detect(stream, metadata).toString()
+            }
+
+            return "application/octet-stream"
         }
 
         fun FilePickerDelegate.saveFile(
@@ -230,6 +281,7 @@ object FileUtils {
             type: String?,
             initialDirectory: String?,
             bytes: ByteArray?,
+            sourcePath: String?,
             result: MethodChannel.Result
         ) {
             if (!this.setPendingMethodCallResult(result)) {
@@ -242,8 +294,9 @@ object FileUtils {
                 intent.putExtra(Intent.EXTRA_TITLE, fileName)
             }
             this.bytes = bytes
+            this.sourcePath = sourcePath
             if ("dir" != type) {
-                intent.type = getMimeTypeForBytes(fileName = fileName, bytes = bytes)
+                intent.type = getMimeTypeForFile(fileName = fileName, bytes = bytes, sourcePath = sourcePath)
             }
             if (!initialDirectory.isNullOrEmpty()) {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {

@@ -9,8 +9,9 @@ class FilePickerMacOS extends FilePicker {
   }
 
   @visibleForTesting
-  final methodChannel =
-      const MethodChannel('miguelruivo.flutter.plugins.filepicker');
+  final methodChannel = const MethodChannel(
+    'miguelruivo.flutter.plugins.filepicker',
+  );
 
   @override
   Future<List<String>?> pickFileAndDirectoryPaths({
@@ -18,10 +19,7 @@ class FilePickerMacOS extends FilePicker {
     FileType type = FileType.any,
     List<String>? allowedExtensions,
   }) async {
-    final fileFilter = fileTypeToFileFilter(
-      type,
-      allowedExtensions,
-    );
+    final fileFilter = fileTypeToFileFilter(type, allowedExtensions);
 
     final filePaths = await methodChannel.invokeListMethod<String>(
       'pickFileAndDirectoryPaths',
@@ -42,7 +40,8 @@ class FilePickerMacOS extends FilePicker {
     List<String>? allowedExtensions,
     Function(FilePickerStatus)? onFileLoading,
     @Deprecated(
-        'allowCompression is deprecated and has no effect. Use compressionQuality instead.')
+      'allowCompression is deprecated and has no effect. Use compressionQuality instead.',
+    )
     bool allowCompression = false,
     int compressionQuality = 0,
     bool allowMultiple = false,
@@ -51,19 +50,14 @@ class FilePickerMacOS extends FilePicker {
     bool lockParentWindow = false,
     bool readSequential = false,
   }) async {
-    final fileFilter = fileTypeToFileFilter(
-      type,
-      allowedExtensions,
-    );
+    final fileFilter = fileTypeToFileFilter(type, allowedExtensions);
 
-    final filePaths = await methodChannel.invokeListMethod<String>(
-      'pickFiles',
-      <String, dynamic>{
-        'allowedExtensions': fileFilter,
-        'initialDirectory': escapeInitialDirectory(initialDirectory),
-        'allowMultiple': allowMultiple,
-      },
-    );
+    final filePaths = await methodChannel
+        .invokeListMethod<String>('pickFiles', <String, dynamic>{
+          'allowedExtensions': fileFilter,
+          'initialDirectory': escapeInitialDirectory(initialDirectory),
+          'allowMultiple': allowMultiple,
+        });
     if (filePaths == null) {
       return null;
     }
@@ -101,29 +95,31 @@ class FilePickerMacOS extends FilePicker {
     FileType type = FileType.any,
     List<String>? allowedExtensions,
     Uint8List? bytes,
+    String? sourcePath,
     bool lockParentWindow = false,
   }) async {
-    final fileFilter = fileTypeToFileFilter(
-      type,
-      allowedExtensions,
-    );
+    final fileFilter = fileTypeToFileFilter(type, allowedExtensions);
 
-    final String? savedFilePath = await methodChannel.invokeMethod<String>(
-      'saveFile',
-      <String, dynamic>{
-        'dialogTitle': escapeDialogTitle(dialogTitle ?? defaultDialogTitle),
-        'fileName': fileName,
-        'initialDirectory': escapeInitialDirectory(initialDirectory),
-        'allowedExtensions': fileFilter,
-      },
-    );
+    final String? savedFilePath = await methodChannel
+        .invokeMethod<String>('saveFile', <String, dynamic>{
+          'dialogTitle': escapeDialogTitle(dialogTitle ?? defaultDialogTitle),
+          'fileName': fileName,
+          'initialDirectory': escapeInitialDirectory(initialDirectory),
+          'allowedExtensions': fileFilter,
+        });
 
-    await saveBytesToFile(bytes, savedFilePath);
+    await saveDataToFile(
+      bytes: bytes,
+      sourcePath: sourcePath,
+      path: savedFilePath,
+    );
     return savedFilePath;
   }
 
   List<String> fileTypeToFileFilter(
-      FileType type, List<String>? allowedExtensions) {
+    FileType type,
+    List<String>? allowedExtensions,
+  ) {
     if (type != FileType.custom && (allowedExtensions?.isNotEmpty ?? false)) {
       throw ArgumentError.value(
         allowedExtensions,
@@ -156,7 +152,7 @@ class FilePickerMacOS extends FilePicker {
           "gif",
           "jpeg",
           "jpg",
-          "png"
+          "png",
         ];
       case FileType.video:
         return [
@@ -168,7 +164,7 @@ class FilePickerMacOS extends FilePicker {
           "m4v",
           "mpeg",
           "webm",
-          "wmv"
+          "wmv",
         ];
     }
   }

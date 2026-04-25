@@ -11,6 +11,9 @@ import io.flutter.plugin.common.EventChannel.EventSink
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.PluginRegistry.ActivityResultListener
 import java.io.IOException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 class FilePickerDelegate(
     val activity: Activity,
@@ -34,6 +37,7 @@ class FilePickerDelegate(
     var allowedExtensions: ArrayList<String?>? = null
     var eventSink: EventSink? = null
     var bytes: ByteArray? = null
+    var sourcePath: String? = null
 
     fun setEventHandler(eventSink: EventSink?) {
         this.eventSink = eventSink
@@ -67,15 +71,20 @@ class FilePickerDelegate(
     private fun saveFile(uri: Uri?): Boolean {
         uri ?: return false
         dispatchEventStatus(true)
-        return try {
-            val newUri = FileUtils.writeBytesData(context = activity, uri, bytes) ?: uri
-            finishWithSuccess(newUri.path)
-            true
-        } catch (e: IOException) {
-            Log.e(TAG, "Error while saving file", e)
-            finishWithError("Error while saving file", e.message)
-            false
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val newUri = if (!sourcePath.isNullOrEmpty()) {
+                    FileUtils.writeFileData(context = activity, uri, sourcePath!!)
+                } else {
+                    FileUtils.writeBytesData(context = activity, uri, bytes)
+                } ?: uri
+                finishWithSuccess(newUri.path)
+            } catch (e: IOException) {
+                Log.e(TAG, "Error while saving file", e)
+                finishWithError("Error while saving file", e.message)
+            }
         }
+        return true
     }
 
     private fun handleFilePickerResult(resultCode: Int, data: Intent?): Boolean {
@@ -127,5 +136,7 @@ class FilePickerDelegate(
 
     private fun clearPendingResult() {
         pendingResult = null
+        bytes = null
+        sourcePath = null
     }
 }

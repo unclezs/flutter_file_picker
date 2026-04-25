@@ -157,7 +157,11 @@
         NSString *fileType = [arguments valueForKey:@"fileType"];
         NSString *initialDirectory = [arguments valueForKey:@"initialDirectory"];
         FlutterStandardTypedData *bytes = [arguments valueForKey:@"bytes"];
-        [self saveFileWithName:fileName fileType:fileType initialDirectory:initialDirectory bytes: bytes];
+        NSString *sourcePath = [arguments valueForKey:@"sourcePath"];
+        if ([sourcePath isKindOfClass:[NSNull class]]) {
+            sourcePath = nil;
+        }
+        [self saveFileWithName:fileName fileType:fileType initialDirectory:initialDirectory bytes: bytes sourcePath:sourcePath];
 #else
         _result([FlutterError errorWithCode:@"Unsupported function"
                                     message:@"The save function requires the document picker to be compiled in. Remove the Pod::PICKER_DOCUMENT=false statement from your Podfile."
@@ -177,11 +181,18 @@
 #pragma mark - Resolvers
 
 #ifdef PICKER_DOCUMENT
-- (void)saveFileWithName:(NSString*)fileName fileType:(NSString *)fileType initialDirectory:(NSString*)initialDirectory bytes:(FlutterStandardTypedData*)bytes{
+- (void)saveFileWithName:(NSString*)fileName fileType:(NSString *)fileType initialDirectory:(NSString*)initialDirectory bytes:(FlutterStandardTypedData*)bytes sourcePath:(NSString*)sourcePath{
     self.isSaveFile = YES;
     NSFileManager* fm = [NSFileManager defaultManager];
     NSURL* documentsDirectory = [fm URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask][0];
-    NSURL* destinationPath = [documentsDirectory URLByAppendingPathComponent:fileName];
+    NSString* resolvedFileName = fileName;
+    if ([resolvedFileName isKindOfClass:[NSNull class]] || [resolvedFileName length] == 0) {
+        resolvedFileName = [sourcePath lastPathComponent];
+    }
+    if (resolvedFileName == nil || [resolvedFileName length] == 0) {
+        resolvedFileName = @"file";
+    }
+    NSURL* destinationPath = [documentsDirectory URLByAppendingPathComponent:resolvedFileName];
     NSError* error;
     if ([fm fileExistsAtPath:destinationPath.path]) {
         [fm removeItemAtURL:destinationPath error:&error];
@@ -190,7 +201,13 @@
             error = nil;
         }
     }
-    if(bytes != nil){
+    if(sourcePath != nil && [sourcePath length] > 0){
+        [fm copyItemAtURL:[NSURL fileURLWithPath:sourcePath] toURL:destinationPath error:&error];
+        if (error != nil) {
+            _result([FlutterError errorWithCode:@"Failed to copy file" message:[error debugDescription] details:nil]);
+            error = nil;
+        }
+    } else if(bytes != nil && ![bytes isKindOfClass:[NSNull class]]){
         [bytes.data writeToURL:destinationPath options:NSDataWritingAtomic error:&error];
         if (error != nil) {
             _result([FlutterError errorWithCode:@"Failed to write file" message:[error debugDescription] details:nil]);

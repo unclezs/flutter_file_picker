@@ -44,7 +44,8 @@ class FilePickerWeb extends FilePicker {
     bool allowMultiple = false,
     Function(FilePickerStatus)? onFileLoading,
     @Deprecated(
-        'allowCompression is deprecated and has no effect. Use compressionQuality instead.')
+      'allowCompression is deprecated and has no effect. Use compressionQuality instead.',
+    )
     bool allowCompression = false,
     bool withData = true,
     bool withReadStream = false,
@@ -54,7 +55,8 @@ class FilePickerWeb extends FilePicker {
   }) async {
     if (type != FileType.custom && (allowedExtensions?.isNotEmpty ?? false)) {
       throw Exception(
-          'You are setting a type [$type]. Custom extension filters are only allowed with FileType.custom, please change it or remove filters.');
+        'You are setting a type [$type]. Custom extension filters are only allowed with FileType.custom, please change it or remove filters.',
+      );
     }
 
     Completer<List<PlatformFile>?>? filesCompleter =
@@ -91,18 +93,22 @@ class FilePickerWeb extends FilePicker {
       ) {
         String? blobUrl;
         if (bytes != null && bytes.isNotEmpty) {
-          final blob =
-              Blob([bytes.toJS].toJS, BlobPropertyBag(type: file.type));
+          final blob = Blob(
+            [bytes.toJS].toJS,
+            BlobPropertyBag(type: file.type),
+          );
 
           blobUrl = URL.createObjectURL(blob);
         }
-        pickedFiles.add(PlatformFile(
-          name: file.name,
-          path: path ?? blobUrl,
-          size: bytes != null ? bytes.length : file.size,
-          bytes: bytes,
-          readStream: readStream,
-        ));
+        pickedFiles.add(
+          PlatformFile(
+            name: file.name,
+            path: path ?? blobUrl,
+            size: bytes != null ? bytes.length : file.size,
+            bytes: bytes,
+            readStream: readStream,
+          ),
+        );
 
         if (pickedFiles.length >= files.length) {
           if (onFileLoading != null) {
@@ -197,8 +203,15 @@ class FilePickerWeb extends FilePicker {
     FileType type = FileType.any,
     List<String>? allowedExtensions,
     Uint8List? bytes,
+    String? sourcePath,
     bool lockParentWindow = false,
   }) async {
+    if (sourcePath != null && sourcePath.isNotEmpty) {
+      throw ArgumentError(
+        'sourcePath is not supported when saving a file on the web.',
+      );
+    }
+
     if (bytes == null || bytes.isEmpty) {
       throw ArgumentError(
         'The bytes are required when saving a file on the web.',
@@ -223,7 +236,8 @@ class FilePickerWeb extends FilePicker {
     // Start a download by using a click event on an anchor element that contains the Blob.
     HTMLAnchorElement()
       ..href = url
-      ..target = 'blank' // Always open the file in a new tab.
+      ..target =
+          'blank' // Always open the file in a new tab.
       ..download = fileName
       ..click();
 
@@ -250,8 +264,10 @@ class FilePickerWeb extends FilePicker {
         return 'video/*|image/*';
 
       case FileType.custom:
-        return allowedExtensions!
-            .fold('', (prev, next) => '${prev.isEmpty ? '' : '$prev,'} .$next');
+        return allowedExtensions!.fold(
+          '',
+          (prev, next) => '${prev.isEmpty ? '' : '$prev,'} .$next',
+        );
     }
   }
 

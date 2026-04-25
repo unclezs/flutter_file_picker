@@ -20,7 +20,8 @@ class FilePickerLinux extends FilePicker {
     List<String>? allowedExtensions,
     Function(FilePickerStatus)? onFileLoading,
     @Deprecated(
-        'allowCompression is deprecated and has no effect. Use compressionQuality instead.')
+      'allowCompression is deprecated and has no effect. Use compressionQuality instead.',
+    )
     bool allowCompression = false,
     bool allowMultiple = false,
     bool withData = false,
@@ -72,12 +73,12 @@ class FilePickerLinux extends FilePicker {
     String? initialDirectory,
   }) async {
     final executable = await _getPathToExecutable();
-    final List<String> arguments =
-        DialogHandler(executable).generateCommandLineArguments(
-      dialogTitle ?? defaultDialogTitle,
-      initialDirectory: initialDirectory ?? '',
-      pickDirectory: true,
-    );
+    final List<String> arguments = DialogHandler(executable)
+        .generateCommandLineArguments(
+          dialogTitle ?? defaultDialogTitle,
+          initialDirectory: initialDirectory ?? '',
+          pickDirectory: true,
+        );
     return await runExecutableWithArguments(executable, arguments);
   }
 
@@ -89,6 +90,7 @@ class FilePickerLinux extends FilePicker {
     FileType type = FileType.any,
     List<String>? allowedExtensions,
     Uint8List? bytes,
+    String? sourcePath,
     bool lockParentWindow = false,
   }) async {
     final executable = await _getPathToExecutable();
@@ -107,9 +109,15 @@ class FilePickerLinux extends FilePicker {
       saveFile: true,
     );
 
-    final savedFilePath =
-        await runExecutableWithArguments(executable, arguments);
-    await saveBytesToFile(bytes, savedFilePath);
+    final savedFilePath = await runExecutableWithArguments(
+      executable,
+      arguments,
+    );
+    await saveDataToFile(
+      bytes: bytes,
+      sourcePath: sourcePath,
+      path: savedFilePath,
+    );
     return savedFilePath;
   }
 

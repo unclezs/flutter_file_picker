@@ -6,19 +6,9 @@ import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 const String defaultDialogTitle = '';
 
-enum FileType {
-  any,
-  media,
-  image,
-  video,
-  audio,
-  custom,
-}
+enum FileType { any, media, image, video, audio, custom }
 
-enum FilePickerStatus {
-  picking,
-  done,
-}
+enum FilePickerStatus { picking, done }
 
 /// The interface that implementations of file_picker must implement.
 ///
@@ -97,7 +87,8 @@ abstract class FilePicker extends PlatformInterface {
     List<String>? allowedExtensions,
     Function(FilePickerStatus)? onFileLoading,
     @Deprecated(
-        'allowCompression is deprecated and has no effect. Use compressionQuality instead.')
+      'allowCompression is deprecated and has no effect. Use compressionQuality instead.',
+    )
     bool allowCompression = false,
     int compressionQuality = 0,
     bool allowMultiple = false,
@@ -105,8 +96,7 @@ abstract class FilePicker extends PlatformInterface {
     bool withReadStream = false,
     bool lockParentWindow = false,
     bool readSequential = false,
-  }) async =>
-      throw UnimplementedError('pickFiles() has not been implemented.');
+  }) async => throw UnimplementedError('pickFiles() has not been implemented.');
 
   /// Displays a dialog that allows the user to select both files and
   /// directories simultaneously, returning their absolute paths.
@@ -130,9 +120,9 @@ abstract class FilePicker extends PlatformInterface {
     String? initialDirectory,
     FileType type = FileType.any,
     List<String>? allowedExtensions,
-  }) async =>
-      throw UnimplementedError(
-          'pickFileAndDirectoryPaths() has not been implemented.');
+  }) async => throw UnimplementedError(
+    'pickFileAndDirectoryPaths() has not been implemented.',
+  );
 
   /// Asks the underlying platform to remove any temporary files created by this plugin.
   ///
@@ -144,7 +134,8 @@ abstract class FilePicker extends PlatformInterface {
   ///
   /// Returns `true` if the files were removed with success, `false` otherwise.
   Future<bool?> clearTemporaryFiles() async => throw UnimplementedError(
-      'clearTemporaryFiles() has not been implemented.');
+    'clearTemporaryFiles() has not been implemented.',
+  );
 
   /// Selects a directory and returns its absolute path.
   ///
@@ -183,13 +174,16 @@ abstract class FilePicker extends PlatformInterface {
   /// Opens a save file dialog which lets the user select a file path and a file
   /// name to save a file.
   ///
-  /// For mobile, this function will save a file with the given [fileName] and [bytes] and return the path where the file was saved.
+  /// For mobile, this function will save a file with the given [fileName] and
+  /// [bytes] or [sourcePath] and return the path where the file was saved.
   ///
   /// For desktop platforms, this function opens a dialog to let the user choose a location for the file and returns the selected path.
-  /// If the bytes are provided, then the bytes are written to a file at the chosen path.
+  /// If [bytes] are provided, then the bytes are written to a file at the chosen path.
+  /// If [sourcePath] is provided, then the source file is copied to the chosen path.
   ///
   /// On the web, this function will start a download for the file with [bytes] and [fileName].
   /// If the [bytes] or [fileName] are omitted, this will throw an [ArgumentError].
+  /// [sourcePath] is not supported on the web.
   /// The returned path for the downloaded file will always be `null`, as the browser handles the download.
   ///
   /// The User Selected File Read/Write entitlement is required on macOS.
@@ -225,7 +219,7 @@ abstract class FilePicker extends PlatformInterface {
     FileType type = FileType.any,
     List<String>? allowedExtensions,
     Uint8List? bytes,
+    String? sourcePath,
     bool lockParentWindow = false,
-  }) async =>
-      throw UnimplementedError('saveFile() has not been implemented.');
+  }) async => throw UnimplementedError('saveFile() has not been implemented.');
 }
