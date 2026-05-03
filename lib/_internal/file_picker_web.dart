@@ -204,6 +204,7 @@ class FilePickerWeb extends FilePicker {
     List<String>? allowedExtensions,
     Uint8List? bytes,
     String? sourcePath,
+    String? temporaryDirectory,
     bool lockParentWindow = false,
   }) async {
     if (sourcePath != null && sourcePath.isNotEmpty) {

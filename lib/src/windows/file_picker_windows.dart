@@ -205,6 +205,7 @@ class FilePickerWindows extends FilePicker {
     List<String>? allowedExtensions,
     Uint8List? bytes,
     String? sourcePath,
+    String? temporaryDirectory,
     bool lockParentWindow = false,
   }) async {
     final port = ReceivePort();

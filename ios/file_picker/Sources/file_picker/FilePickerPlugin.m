@@ -18,6 +18,7 @@
 #ifdef PICKER_DOCUMENT
 @property (nonatomic) UIDocumentPickerViewController *documentPickerController;
 @property (nonatomic) UIDocumentInteractionController *interactionController;
+@property (nonatomic, strong) NSURL *saveFileStagingDirectoryURL;
 #endif
 @property (nonatomic) MPMediaPickerController *audioPickerController;
 @property (nonatomic) NSArray<NSString *> * allowedExtensions;
@@ -158,10 +159,14 @@
         NSString *initialDirectory = [arguments valueForKey:@"initialDirectory"];
         FlutterStandardTypedData *bytes = [arguments valueForKey:@"bytes"];
         NSString *sourcePath = [arguments valueForKey:@"sourcePath"];
+        NSString *temporaryDirectory = [arguments valueForKey:@"temporaryDirectory"];
         if ([sourcePath isKindOfClass:[NSNull class]]) {
             sourcePath = nil;
         }
-        [self saveFileWithName:fileName fileType:fileType initialDirectory:initialDirectory bytes: bytes sourcePath:sourcePath];
+        if ([temporaryDirectory isKindOfClass:[NSNull class]]) {
+            temporaryDirectory = nil;
+        }
+        [self saveFileWithName:fileName fileType:fileType initialDirectory:initialDirectory bytes: bytes sourcePath:sourcePath temporaryDirectory:temporaryDirectory];
 #else
         _result([FlutterError errorWithCode:@"Unsupported function"
                                     message:@"The save function requires the document picker to be compiled in. Remove the Pod::PICKER_DOCUMENT=false statement from your Podfile."
@@ -181,10 +186,35 @@
 #pragma mark - Resolvers
 
 #ifdef PICKER_DOCUMENT
-- (void)saveFileWithName:(NSString*)fileName fileType:(NSString *)fileType initialDirectory:(NSString*)initialDirectory bytes:(FlutterStandardTypedData*)bytes sourcePath:(NSString*)sourcePath{
+- (NSURL*)createSaveFileStagingDirectory:(NSString*)temporaryDirectory error:(NSError**)error {
+    NSString* basePath = nil;
+    if ([temporaryDirectory isKindOfClass:[NSString class]] && [temporaryDirectory length] > 0) {
+        basePath = temporaryDirectory;
+    } else {
+        basePath = NSTemporaryDirectory();
+    }
+
+    NSURL* baseURL = [NSURL fileURLWithPath:basePath isDirectory:YES];
+    NSString* stagingDirectoryName = [@"file_picker_save_" stringByAppendingString:[[NSUUID UUID] UUIDString]];
+    NSURL* stagingDirectoryURL = [baseURL URLByAppendingPathComponent:stagingDirectoryName isDirectory:YES];
+    [[NSFileManager defaultManager] createDirectoryAtURL:stagingDirectoryURL withIntermediateDirectories:YES attributes:nil error:error];
+    if (error != nil && *error != nil) {
+        return nil;
+    }
+    return stagingDirectoryURL;
+}
+
+- (void)cleanupSaveFileStagingDirectory {
+    if (self.saveFileStagingDirectoryURL == nil) {
+        return;
+    }
+    [[NSFileManager defaultManager] removeItemAtURL:self.saveFileStagingDirectoryURL error:nil];
+    self.saveFileStagingDirectoryURL = nil;
+}
+
+- (void)saveFileWithName:(NSString*)fileName fileType:(NSString *)fileType initialDirectory:(NSString*)initialDirectory bytes:(FlutterStandardTypedData*)bytes sourcePath:(NSString*)sourcePath temporaryDirectory:(NSString*)temporaryDirectory{
     self.isSaveFile = YES;
     NSFileManager* fm = [NSFileManager defaultManager];
-    NSURL* documentsDirectory = [fm URLsForDirectory:NSDocumentDirectory inDomains:NSUserDomainMask][0];
     NSString* resolvedFileName = fileName;
     if ([resolvedFileName isKindOfClass:[NSNull class]] || [resolvedFileName length] == 0) {
         resolvedFileName = [sourcePath lastPathComponent];
@@ -192,27 +222,33 @@
     if (resolvedFileName == nil || [resolvedFileName length] == 0) {
         resolvedFileName = @"file";
     }
-    NSURL* destinationPath = [documentsDirectory URLByAppendingPathComponent:resolvedFileName];
-    NSError* error;
-    if ([fm fileExistsAtPath:destinationPath.path]) {
-        [fm removeItemAtURL:destinationPath error:&error];
-        if (error != nil) {
-            _result([FlutterError errorWithCode:@"Failed to remove file" message:[error debugDescription] details:nil]);
-            error = nil;
-        }
+    NSError* error = nil;
+    NSURL* stagingDirectoryURL = [self createSaveFileStagingDirectory:temporaryDirectory error:&error];
+    if (error != nil || stagingDirectoryURL == nil) {
+        _result([FlutterError errorWithCode:@"Failed to create temporary file directory" message:[error debugDescription] details:nil]);
+        return;
     }
+    self.saveFileStagingDirectoryURL = stagingDirectoryURL;
+    NSURL* destinationPath = [stagingDirectoryURL URLByAppendingPathComponent:resolvedFileName];
+
     if(sourcePath != nil && [sourcePath length] > 0){
         [fm copyItemAtURL:[NSURL fileURLWithPath:sourcePath] toURL:destinationPath error:&error];
         if (error != nil) {
             _result([FlutterError errorWithCode:@"Failed to copy file" message:[error debugDescription] details:nil]);
-            error = nil;
+            [self cleanupSaveFileStagingDirectory];
+            return;
         }
     } else if(bytes != nil && ![bytes isKindOfClass:[NSNull class]]){
         [bytes.data writeToURL:destinationPath options:NSDataWritingAtomic error:&error];
         if (error != nil) {
             _result([FlutterError errorWithCode:@"Failed to write file" message:[error debugDescription] details:nil]);
-            error = nil;
+            [self cleanupSaveFileStagingDirectory];
+            return;
         }
+    } else {
+        _result([FlutterError errorWithCode:@"Missing file data" message:@"Either bytes or sourcePath is required when saving a file." details:nil]);
+        [self cleanupSaveFileStagingDirectory];
+        return;
     }
     self.documentPickerController = [[UIDocumentPickerViewController alloc] initWithURL:destinationPath inMode:UIDocumentPickerModeExportToService];
     self.documentPickerController.delegate = self;
@@ -415,10 +451,15 @@
 didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls{
     
     if(_result == nil) {
+        if (self.isSaveFile) {
+            [self cleanupSaveFileStagingDirectory];
+        }
         return;
     }
     if(self.isSaveFile){
-        _result(urls[0].path);
+        NSString* savedPath = urls[0].path;
+        [self cleanupSaveFileStagingDirectory];
+        _result(savedPath);
         _result = nil;
         return;
     }
@@ -726,6 +767,9 @@ didPickDocumentsAtURLs:(NSArray<NSURL *> *)urls{
 #ifdef PICKER_DOCUMENT
 - (void)documentPickerWasCancelled:(UIDocumentPickerViewController *)controller {
     Log(@"FilePicker canceled");
+    if (self.isSaveFile) {
+        [self cleanupSaveFileStagingDirectory];
+    }
     _result(nil);
     _result = nil;
     [controller dismissViewControllerAnimated:YES completion:NULL];

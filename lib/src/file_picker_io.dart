@@ -150,6 +150,7 @@ class FilePickerIO extends FilePicker {
     List<String>? allowedExtensions,
     Uint8List? bytes,
     String? sourcePath,
+    String? temporaryDirectory,
     bool lockParentWindow = false,
   }) {
     if (Platform.isIOS || Platform.isAndroid) {
@@ -166,6 +167,7 @@ class FilePickerIO extends FilePicker {
         "allowedExtensions": allowedExtensions,
         "bytes": bytes,
         "sourcePath": sourcePath,
+        "temporaryDirectory": temporaryDirectory,
       });
     }
     return super.saveFile(
@@ -176,6 +178,7 @@ class FilePickerIO extends FilePicker {
       allowedExtensions: allowedExtensions,
       bytes: bytes,
       sourcePath: sourcePath,
+      temporaryDirectory: temporaryDirectory,
       lockParentWindow: lockParentWindow,
     );
   }

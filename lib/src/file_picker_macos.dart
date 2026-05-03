@@ -96,6 +96,7 @@ class FilePickerMacOS extends FilePicker {
     List<String>? allowedExtensions,
     Uint8List? bytes,
     String? sourcePath,
+    String? temporaryDirectory,
     bool lockParentWindow = false,
   }) async {
     final fileFilter = fileTypeToFileFilter(type, allowedExtensions);

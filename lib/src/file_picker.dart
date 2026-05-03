@@ -177,6 +177,10 @@ abstract class FilePicker extends PlatformInterface {
   /// For mobile, this function will save a file with the given [fileName] and
   /// [bytes] or [sourcePath] and return the path where the file was saved.
   ///
+  /// On iOS, [temporaryDirectory] can be set to an app-writable directory used
+  /// to stage the exported file before presenting the document picker. If it is
+  /// omitted, the system temporary directory is used.
+  ///
   /// For desktop platforms, this function opens a dialog to let the user choose a location for the file and returns the selected path.
   /// If [bytes] are provided, then the bytes are written to a file at the chosen path.
   /// If [sourcePath] is provided, then the source file is copied to the chosen path.
@@ -220,6 +224,7 @@ abstract class FilePicker extends PlatformInterface {
     List<String>? allowedExtensions,
     Uint8List? bytes,
     String? sourcePath,
+    String? temporaryDirectory,
     bool lockParentWindow = false,
   }) async => throw UnimplementedError('saveFile() has not been implemented.');
 }
