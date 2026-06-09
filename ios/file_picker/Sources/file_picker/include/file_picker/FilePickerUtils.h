@@ -1,5 +1,5 @@
 //
-//  FileUtils.h
+//  FilePickerUtils.h
 //  Pods
 //
 //  Created by Miguel Ruivo on 05/12/2018.
@@ -19,13 +19,12 @@ typedef NS_ENUM(NSInteger, MediaType) {
   MEDIA
 };
 
-@interface FileUtils : NSObject
+@interface FilePickerUtils : NSObject
 + (BOOL) clearTemporaryFiles;
 + (NSArray<NSString*>*) resolveType:(NSString*)type withAllowedExtensions:(NSArray<NSString*>*)allowedExtensions;
 + (MediaType) resolveMediaType:(NSString*)type;
 + (NSArray<NSDictionary*>*) resolveFileInfo:(NSArray<NSURL *> *)urls withData:(BOOL)loadData;
 + (NSURL*) exportMusicAsset:(NSString*)url withName: (NSString*)name;
 @end
-
 
 
