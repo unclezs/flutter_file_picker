@@ -153,10 +153,12 @@ class FilePickerIO extends FilePicker {
     String? temporaryDirectory,
     bool lockParentWindow = false,
   }) {
-    if (Platform.isIOS || Platform.isAndroid) {
+    if (Platform.isIOS ||
+        Platform.isAndroid ||
+        Platform.operatingSystem == 'ohos') {
       if (bytes == null && (sourcePath == null || sourcePath.isEmpty)) {
         throw ArgumentError(
-          'Either bytes or sourcePath is required on Android & iOS when saving a file.',
+          'Either bytes or sourcePath is required on Android, iOS & OHOS when saving a file.',
         );
       }
 

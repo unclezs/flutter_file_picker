@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:file_picker/src/file_picker_result.dart';
+import 'package:file_picker/src/file_picker_platform.dart'
+    if (dart.library.io) 'package:file_picker/src/file_picker_platform_io.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
 const String defaultDialogTitle = '';
@@ -22,9 +24,9 @@ abstract class FilePicker extends PlatformInterface {
 
   static final Object _token = Object();
 
-  static late FilePicker _instance;
+  static FilePicker? _instance;
 
-  static FilePicker get platform => _instance;
+  static FilePicker get platform => _instance ??= createFilePicker();
 
   static set platform(FilePicker instance) {
     PlatformInterface.verifyToken(instance, _token);
