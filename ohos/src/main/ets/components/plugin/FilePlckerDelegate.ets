@@ -350,71 +350,73 @@ export class FilePickerDelegate {
     this.clearPendingResult();
   }
 
-  saveFile(fileNameArray: Array<string>, type: string, initialDirectory: string, allowedExtensions: Array<string>,
-    result: MethodResult) {
+  saveFile(fileName: string, type: string, initialDirectory: string, allowedExtensions: Array<string>,
+    bytes: Uint8Array | null, sourcePath: string | null, result: MethodResult) {
     if (!this.setPendingMethodCallAndResult(result)) {
       this.finishWithAlreadyActiveError(result);
       return;
     }
-    if (!this.bytesList || this.bytesList.length == 0) {
-      this.finishWithError("", "Bytes are required on HarmonyOS & Android & IOS when saving a file");
+    const hasSourcePath = sourcePath != null && sourcePath.length > 0;
+    const hasBytes = bytes != null && bytes.length > 0;
+    if (!hasSourcePath && !hasBytes) {
+      this.finishWithError("", "Either bytes or sourcePath is required on HarmonyOS & Android & IOS when saving a file");
+      return;
     }
 
-    if (this.bytesList && this.bytesList?.length > 0) {
-      let documentSaveOptions: picker.DocumentSaveOptions | null = null
-      documentSaveOptions = new picker.DocumentSaveOptions();
-      documentSaveOptions.defaultFilePathUri = initialDirectory;
-      if (allowedExtensions) {
-        documentSaveOptions.fileSuffixChoices = allowedExtensions;
+    let documentSaveOptions: picker.DocumentSaveOptions | null = null
+    documentSaveOptions = new picker.DocumentSaveOptions();
+    documentSaveOptions.defaultFilePathUri = initialDirectory;
+    documentSaveOptions.newFileNames = [fileName];
+    if (allowedExtensions && allowedExtensions.length > 0) {
+      documentSaveOptions.fileSuffixChoices = allowedExtensions;
+    }
+    let commonContext = this.ability?.context as common.UIAbilityContext;
+    let documentPicker = new picker.DocumentViewPicker(commonContext);
+    documentPicker.save(documentSaveOptions).then(async (documentSaveResult: Array<string>) => {
+      if (documentSaveResult == null || documentSaveResult.length == 0) {
+        await this.cancelOperation();
+        return;
       }
-      let commonContext = this.ability?.context as common.UIAbilityContext;
-      let documentPicker = new picker.DocumentViewPicker(commonContext);
-      let sourceFileNameList: Array<string> = [];
-      // 通过选择文件的路径，获取文件名
-      for (const item of this.savaFilePath) {
-        const lastSlashIndex = item.lastIndexOf('/');
-        const sourceFileName = item.substring(lastSlashIndex + 1);
-        sourceFileNameList.push(sourceFileName);
-      }
-      if (this.savaFilePath && this.savaFilePath.length == 1) {
-        // fileNameArray是 Default File Name 输入框的内容，如果为空，拉起文件选择器之后输入框有后缀（通过源文件获得）
-        // documentSaveOptions.newFileNames是预设的文件名，拉起文件选择器自动显示在输入框中的
-        let filePath: string = '';
-        let hasExtension: boolean = hasFileExtension(filePath);
-        const lastSlashIndex = this.savaFilePath[0].lastIndexOf('/');
-        const sourceFileName = this.savaFilePath[0].substring(lastSlashIndex + 1);
-        const sourceExt = getExtension(sourceFileName);
-        if (!hasExtension) {
-          filePath = fileNameArray[0] + sourceExt;
-        } else {
-          filePath = fileNameArray[0]
-        }
-        documentSaveOptions.newFileNames = [filePath];
+      const savePath = documentSaveResult[0];
+      this.writeSaveResult(savePath, sourcePath, bytes);
+      let originFileName = FileUtils.getFileName(savePath)
+      let newFileName = FileUtils.urlDecodeManual(originFileName);
+      let newSavePath = FileUtils.replaceFileName(savePath, originFileName, newFileName)
+      this.saveFinishWithSuccess(newSavePath);
+    }).catch((err: BusinessError) => {
+      if (err.code == 13900001) {
+        this.finishWithError(err.code.toString(), err.message + ", 此文件路径无权访问，只接受应用沙箱路径");
       } else {
-        documentSaveOptions.newFileNames = sourceFileNameList;
+        this.finishWithError(err.code.toString(), err.message);
       }
-      documentPicker.save(documentSaveOptions).then(async (documentSaveResult: Array<string>) => {
-        if (documentSaveResult == null || documentSaveResult.length == 0) {
-          //this.finishWithError("invalid_format_type","Can1t handle the provided file_type");//用例保持一致
-          await this.cancelOperation();
-        } else if (documentSaveResult && documentSaveResult.length == 1) {
-          // 如果在这个位置添加后缀，错误码: 13900002 错误信息: No such file or directory
-          this.singSave(documentSaveResult[0]);
-        } else {
-          //  选择多个文件后保存，只需要选择路径，不用添加文件名,重名自动加1
-          this.multipleSave(documentSaveResult);
-        }
-        let originFileName = FileUtils.getFileName(documentSaveResult[0])
-        let newFileName = FileUtils.urlDecodeManual(originFileName);
-        let newSavePath = FileUtils.replaceFileName(documentSaveResult[0], originFileName, newFileName)
-        this.saveFinishWithSuccess(newSavePath);
-      }).catch((err: BusinessError) => {
-        if (err.code == 13900001) {
-          this.finishWithError(err.code.toString(), err.message + ", 此文件路径无权访问，只接受应用沙箱路径");
-        } else {
-          this.finishWithError(err.code.toString(), err.message);
-        }
-      });
+    });
+  }
+
+  writeSaveResult(saveResultUri: string, sourcePath: string | null, bytes: Uint8Array | null) {
+    let sourceFd: number | undefined;
+    let targetFd: number | undefined;
+    try {
+      const targetFile: fs.File =
+        fs.openSync(saveResultUri, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
+      targetFd = targetFile.fd;
+      if (sourcePath != null && sourcePath.length > 0) {
+        const sourceFile: fs.File = fs.openSync(sourcePath, fs.OpenMode.READ_ONLY);
+        sourceFd = sourceFile.fd;
+        fs.copyFileSync(sourceFd, targetFd);
+      } else if (bytes != null) {
+        fs.writeSync(targetFd, bytes.buffer);
+      }
+      fs.fsyncSync(targetFd);
+    } catch (error) {
+      const e = error as BusinessError;
+      throw new Error(`savefile 文件复制失败: ${e.message}`);
+    } finally {
+      if (sourceFd !== undefined) {
+        fs.closeSync(sourceFd);
+      }
+      if (targetFd !== undefined) {
+        fs.closeSync(targetFd);
+      }
     }
   }
   // 辅助函数：读取文件数据

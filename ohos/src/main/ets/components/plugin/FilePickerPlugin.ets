@@ -98,7 +98,17 @@ onMethodCall(call: MethodCall, result: MethodResult): void {
       let initialDirectory: string = args.get("initialDirectory") as string;
       let allowedExtensions: List<string> = args.get("allowedExtensions") as List<string>;
       let bytes: Uint8Array = args.get("bytes") as Uint8Array;
-      this.delegate?.saveFile([fileName], type, initialDirectory, this.allowedExtensions as Array<string>, result)
+      let sourcePath: string = args.get("sourcePath") as string;
+      let saveAllowedExtensions: Array<string> = new Array<string>();
+      if (allowedExtensions != null && allowedExtensions.length != 0) {
+        allowedExtensions.forEach((item) => {
+          const extension = `${item}`.replace(/^\.+/, '');
+          if (extension.length > 0) {
+            saveAllowedExtensions.push(`.${extension}`);
+          }
+        })
+      }
+      this.delegate?.saveFile(fileName, type, initialDirectory, saveAllowedExtensions, bytes, sourcePath, result)
       return;
     }
     if (this.fileType == null) {
